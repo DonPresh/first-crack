@@ -1,12 +1,14 @@
 /* Soft, synthesized foley. No files: everything is shaped noise and tiny tones.
    Audio starts on the first tap (browsers require a gesture). Quiet by design. */
 
-type Loop = 'grind' | 'pour' | 'rattle' | 'steam' | 'shot'
+type Loop = 'grind' | 'pour' | 'rattle' | 'steam' | 'shot' | 'trickle'
 
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
 let noise: AudioBuffer | null = null
 let muted = false
+let fillLevel = 0
+let trickleBand: BiquadFilterNode | null = null
 const loops = new Map<Loop, { stop: () => void }>()
 const listeners = new Set<(m: boolean) => void>()
 
@@ -50,7 +52,12 @@ export function setMuted(m: boolean) {
     localStorage.setItem('fc-muted', m ? '1' : '0')
   } catch {}
   if (ctx && master) master.gain.setTargetAtTime(m ? 0 : VOLUME, ctx.currentTime, 0.05)
-  if (m) loops.forEach((_, k) => loop(k, false))
+  if (m) {
+    loops.forEach((_, k) => loop(k, false))
+    const w = musicWanted
+    music(false)
+    musicWanted = w
+  } else if (musicWanted) music(true)
   listeners.forEach((f) => f(m))
 }
 export function onMute(f: (m: boolean) => void) {
@@ -117,44 +124,149 @@ export function crinkle(len = 0.35) {
   for (let i = 0; i < 14; i++) grain(c, t + Math.random() * len, 1500 + Math.random() * 3000, 0.02 + Math.random() * 0.03, 0.18, 3)
 }
 
-/** beans tumbling out of the bag: a shower of small hard ticks that thins out */
-export function spill(seconds = 2.2) {
+/** a hard little click: one bean hitting foil, glass or another bean */
+function tick(c: AudioContext, at: number, vol: number, bright = 1) {
+  const s = src(c)
+  const hp = filt(c, 'highpass', 900 * bright, 0.7)
+  const pk = filt(c, 'peaking', 2400 + Math.random() * 2600, 3)
+  pk.gain.value = 9
+  const g = c.createGain()
+  const d = 0.004 + Math.random() * 0.01
+  g.gain.setValueAtTime(vol, at)
+  g.gain.exponentialRampToValueAtTime(0.0001, at + d)
+  s.connect(hp).connect(pk).connect(g).connect(master!)
+  s.start(at, Math.random() * 1.8, d + 0.01)
+}
+
+/** beans pouring out of a bag: a dense, swelling rattle with a sandy hiss under it,
+    then the last few stragglers bouncing on the counter */
+export function spill(seconds = 2.4) {
   const c = ready()
   if (!c || muted) return
-  const t = c.currentTime
-  const n = 140
+  const t = c.currentTime + 0.03
+  // sandy bed of countless tiny hits
+  const bed = src(c, true)
+  const bp = filt(c, 'bandpass', 3400, 0.6)
+  const bg = c.createGain()
+  bg.gain.setValueAtTime(0, t)
+  bg.gain.linearRampToValueAtTime(0.09, t + 0.25)
+  bg.gain.setValueAtTime(0.09, t + seconds * 0.55)
+  bg.gain.exponentialRampToValueAtTime(0.0001, t + seconds)
+  // amplitude flutter so the bed sounds granular, not like a hiss
+  const fl = c.createOscillator()
+  fl.type = 'square'
+  fl.frequency.value = 23
+  const flg = c.createGain()
+  flg.gain.value = 0.03
+  fl.connect(flg).connect(bg.gain)
+  bed.connect(bp).connect(bg).connect(master!)
+  bed.start(t)
+  bed.stop(t + seconds + 0.1)
+  fl.start(t)
+  fl.stop(t + seconds + 0.1)
+  // individual beans: rate swells then thins
+  const n = 520
   for (let i = 0; i < n; i++) {
-    const k = Math.pow(Math.random(), 1.6) // dense at the start
+    const u = Math.random()
+    const k = u < 0.85 ? Math.pow(Math.random(), 0.9) * 0.7 : 0.7 + Math.random() * 0.3
     const at = t + k * seconds
-    grain(c, at, 2600 + Math.random() * 3200, 0.018 + Math.random() * 0.02, 0.22 * (1 - k * 0.6), 9)
+    const swell = Math.sin(Math.min(1, k / 0.7) * Math.PI * 0.5 + 0.2)
+    tick(c, at, (0.08 + Math.random() * 0.22) * swell * (k > 0.7 ? 0.8 : 1), 0.8 + Math.random() * 0.6)
+  }
+  // stragglers: a bean bouncing, gaps shrinking (tik... tik.. tik.tik)
+  for (let b = 0; b < 3; b++) {
+    let at = t + seconds * (0.75 + b * 0.08)
+    let gap = 0.16
+    let v = 0.3
+    for (let j = 0; j < 5; j++) {
+      tick(c, at, v, 1.1)
+      at += gap
+      gap *= 0.62
+      v *= 0.62
+    }
   }
 }
 
-/** the one bean landing */
+/** the one bean landing on the counter: tok, then a tiny bounce */
 export function plop() {
   const c = ready()
   if (!c || muted) return
   const t = c.currentTime
-  grain(c, t, 1400, 0.05, 0.4, 5)
-  grain(c, t + 0.09, 1900, 0.03, 0.18, 5)
+  tick(c, t, 0.45, 0.7)
+  knock(c, t, 520, 0.18)
+  tick(c, t + 0.11, 0.18, 1)
+  tick(c, t + 0.17, 0.08, 1.1)
 }
 
-/** a single drip into coffee */
+/** a woody knock body under a click */
+function knock(c: AudioContext, at: number, f: number, vol: number) {
+  const o = c.createOscillator()
+  o.frequency.setValueAtTime(f, at)
+  o.frequency.exponentialRampToValueAtTime(f * 0.7, at + 0.05)
+  const g = c.createGain()
+  g.gain.setValueAtTime(vol, at)
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.06)
+  o.connect(g).connect(master!)
+  o.start(at)
+  o.stop(at + 0.08)
+}
+
+/** a real drop into liquid: a tiny splash, then the bubble "bloop" that rises in pitch */
 export function drip(pitch = 1) {
   const c = ready()
   if (!c || muted) return
-  const t = c.currentTime
+  const t = c.currentTime + Math.random() * 0.02
+  const f0 = (380 + Math.random() * 160) * pitch
   const o = c.createOscillator()
   o.type = 'sine'
-  o.frequency.setValueAtTime(1100 * pitch, t)
-  o.frequency.exponentialRampToValueAtTime(420 * pitch, t + 0.07)
+  o.frequency.setValueAtTime(f0, t)
+  o.frequency.exponentialRampToValueAtTime(f0 * (2.2 + Math.random() * 0.8), t + 0.045)
   const g = c.createGain()
   g.gain.setValueAtTime(0, t)
-  g.gain.linearRampToValueAtTime(0.16, t + 0.004)
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12)
+  g.gain.linearRampToValueAtTime(0.11, t + 0.003)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07)
   o.connect(g).connect(master!)
   o.start(t)
-  o.stop(t + 0.14)
+  o.stop(t + 0.09)
+  // the splash on impact
+  const s = src(c)
+  const b = filt(c, 'bandpass', 2500, 1.2)
+  const sg = c.createGain()
+  sg.gain.setValueAtTime(0.05, t)
+  sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.03)
+  s.connect(b).connect(sg).connect(master!)
+  s.start(t, Math.random(), 0.04)
+}
+
+/** first crack: a sharp, dry snap with a short woody crunch, like cracking a nut */
+export function crack(vol = 1) {
+  const c = ready()
+  if (!c || muted) return
+  const t = c.currentTime + 0.005
+  // the snap
+  const s = src(c)
+  const hp = filt(c, 'highpass', 1200, 0.7)
+  const pk = filt(c, 'peaking', 3200, 2)
+  pk.gain.value = 8
+  const g = c.createGain()
+  g.gain.setValueAtTime(0.9 * vol, t)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.018)
+  s.connect(hp).connect(pk).connect(g).connect(master!)
+  s.start(t, Math.random(), 0.03)
+  // the shell giving way: 3 to 5 micro clicks right behind it
+  const m = 3 + Math.floor(Math.random() * 3)
+  for (let i = 0; i < m; i++) tick(c, t + 0.006 + Math.random() * 0.035, (0.25 + Math.random() * 0.3) * vol, 1.2)
+  knock(c, t, 700 + Math.random() * 300, 0.22 * vol)
+}
+
+/** a handful of pops, the way a real roast cracks: scattered, then clustered */
+export function crackBurst(count = 9, seconds = 2.6) {
+  const c = ready()
+  if (!c || muted) return
+  for (let i = 0; i < count; i++) {
+    const k = Math.pow(Math.random(), 0.8)
+    setTimeout(() => crack(0.5 + Math.random() * 0.5), k * seconds * 1000)
+  }
 }
 
 /** soft thud (tamp, mug set down) */
@@ -294,6 +406,29 @@ export function loop(kind: Loop, on: boolean) {
     timer = window.setInterval(() => Math.random() < 0.4 && drip(0.6 + Math.random() * 0.3), 140)
   }
 
+  if (kind === 'trickle') {
+    // a thin stream into a mug: a liquid resonance that climbs as the cup fills, with bubbles
+    const s = src(c, true)
+    const b = filt(c, 'bandpass', 600 + fillLevel * 900, 5)
+    trickleBand = b
+    const am = c.createGain()
+    am.gain.value = 0.7
+    s.connect(filt(c, 'highpass', 250)).connect(b).connect(am).connect(out)
+    const s2 = src(c, true)
+    const b2 = filt(c, 'bandpass', 2600, 1)
+    const g2 = c.createGain()
+    g2.gain.value = 0.12
+    s2.connect(b2).connect(g2).connect(out)
+    parts.push(s, s2)
+    level = 0.5
+    timer = window.setInterval(() => {
+      const now = c.currentTime
+      am.gain.setTargetAtTime(0.5 + Math.random() * 0.5, now, 0.03)
+      b.frequency.setTargetAtTime((600 + fillLevel * 900) * (0.92 + Math.random() * 0.16), now, 0.04)
+      if (Math.random() < 0.5) drip(1 + fillLevel * 0.8)
+    }, 70)
+  }
+
   parts.forEach((p) => p.start())
   out.gain.linearRampToValueAtTime(level, t + 0.12)
   loops.set(kind, {
@@ -306,6 +441,179 @@ export function loop(kind: Loop, on: boolean) {
       parts.forEach((p) => p.stop(now + 0.25))
     },
   })
+}
+
+/** how full the mug is (0..1), so the pour sound rises as it fills */
+export function setFill(f: number) {
+  fillLevel = Math.max(0, Math.min(1, f))
+}
+
+/* ---------- museum music: a very soft, slow lo-fi loop, all synthesized ---------- */
+let musicOn = false
+let musicWanted = false
+let musicBus: GainNode | null = null
+let musicTimer = 0
+let crackle: AudioBufferSourceNode | null = null
+const BPM = 72
+const BEAT = 60 / BPM
+// Fmaj9 - Em7 - Dm9 - Cmaj7 (as MIDI notes), the bass root an octave below
+const CHORDS = [
+  [53, 57, 60, 64, 67],
+  [52, 55, 59, 62],
+  [50, 53, 57, 60, 64],
+  [48, 52, 55, 59],
+]
+const hz = (n: number) => 440 * Math.pow(2, (n - 69) / 12)
+
+function keys(c: AudioContext, at: number, notes: number[], len: number, vel: number) {
+  notes.forEach((n, i) => {
+    const f = hz(n)
+    const g = c.createGain()
+    const a = at + i * 0.012 // a lazy, rolled chord
+    g.gain.setValueAtTime(0, a)
+    g.gain.linearRampToValueAtTime(vel, a + 0.02)
+    g.gain.exponentialRampToValueAtTime(vel * 0.35, a + 0.6)
+    g.gain.exponentialRampToValueAtTime(0.0001, a + len)
+    const o1 = c.createOscillator()
+    o1.type = 'sine'
+    o1.frequency.value = f
+    o1.detune.value = (Math.random() - 0.5) * 10
+    const o2 = c.createOscillator()
+    o2.type = 'triangle'
+    o2.frequency.value = f * 2
+    const g2 = c.createGain()
+    g2.gain.value = 0.12
+    o1.connect(g)
+    o2.connect(g2).connect(g)
+    g.connect(musicBus!)
+    o1.start(a)
+    o2.start(a)
+    o1.stop(a + len + 0.05)
+    o2.stop(a + len + 0.05)
+  })
+}
+function bass(c: AudioContext, at: number, n: number, len: number) {
+  const o = c.createOscillator()
+  o.type = 'sine'
+  o.frequency.value = hz(n)
+  const g = c.createGain()
+  g.gain.setValueAtTime(0, at)
+  g.gain.linearRampToValueAtTime(0.32, at + 0.03)
+  g.gain.exponentialRampToValueAtTime(0.0001, at + len)
+  o.connect(g).connect(musicBus!)
+  o.start(at)
+  o.stop(at + len + 0.05)
+}
+function kick(c: AudioContext, at: number) {
+  const o = c.createOscillator()
+  o.frequency.setValueAtTime(110, at)
+  o.frequency.exponentialRampToValueAtTime(42, at + 0.18)
+  const g = c.createGain()
+  g.gain.setValueAtTime(0.42, at)
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.3)
+  o.connect(g).connect(musicBus!)
+  o.start(at)
+  o.stop(at + 0.32)
+}
+function snare(c: AudioContext, at: number) {
+  const s = src(c)
+  const b = filt(c, 'bandpass', 1700, 0.8)
+  const g = c.createGain()
+  g.gain.setValueAtTime(0.16, at)
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.16)
+  s.connect(b).connect(g).connect(musicBus!)
+  s.start(at, Math.random(), 0.2)
+}
+function hat(c: AudioContext, at: number, v: number) {
+  const s = src(c)
+  const b = filt(c, 'highpass', 7000, 0.7)
+  const g = c.createGain()
+  g.gain.setValueAtTime(v, at)
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.04)
+  s.connect(b).connect(g).connect(musicBus!)
+  s.start(at, Math.random(), 0.06)
+}
+
+export function music(on: boolean) {
+  musicWanted = on
+  const c = ready()
+  if (!c) return
+  if (!on || muted) {
+    if (!musicOn) return
+    musicOn = false
+    clearInterval(musicTimer)
+    const now = c.currentTime
+    musicBus?.gain.setTargetAtTime(0, now, 0.4)
+    const bus = musicBus
+    const cr = crackle
+    setTimeout(() => {
+      bus?.disconnect()
+      cr?.stop()
+    }, 2500)
+    musicBus = null
+    crackle = null
+    return
+  }
+  if (musicOn) return
+  musicOn = true
+  const now = c.currentTime
+  musicBus = c.createGain()
+  musicBus.gain.setValueAtTime(0, now)
+  musicBus.gain.linearRampToValueAtTime(0.3, now + 4) // fades in slowly
+  // tape warmth: everything through a soft low-pass that drifts a little
+  const warm = filt(c, 'lowpass', 2200, 0.5)
+  const wob = c.createOscillator()
+  wob.frequency.value = 0.15
+  const wg = c.createGain()
+  wg.gain.value = 300
+  wob.connect(wg).connect(warm.frequency)
+  wob.start()
+  musicBus.connect(warm).connect(master!)
+  // vinyl crackle under it all
+  crackle = src(c, true)
+  const cg = c.createGain()
+  cg.gain.value = 0.012
+  crackle.connect(filt(c, 'bandpass', 3000, 0.5)).connect(cg).connect(musicBus)
+  crackle.start()
+  const pops = setInterval(() => {
+    if (!musicOn) return clearInterval(pops)
+    if (Math.random() < 0.5) grainTo(c, musicBus!, c.currentTime + Math.random() * 0.2, 2000 + Math.random() * 3000, 0.006, 0.06)
+  }, 220)
+
+  let next = now + 0.3
+  let step = 0 // eighth notes
+  musicTimer = window.setInterval(() => {
+    if (!musicBus) return
+    while (next < c.currentTime + 0.4) {
+      const bar = Math.floor(step / 8) % CHORDS.length
+      const e = step % 8
+      const swing = e % 2 === 1 ? BEAT * 0.16 : 0
+      const at = next + swing
+      const chord = CHORDS[bar]
+      if (e === 0) {
+        keys(c, at, chord, BEAT * 3.2, 0.05)
+        bass(c, at, chord[0] - 12, BEAT * 1.6)
+        kick(c, at)
+      }
+      if (e === 3) keys(c, at, chord.slice(1), BEAT * 1.6, 0.03)
+      if (e === 5) kick(c, at)
+      if (e === 4) bass(c, at, chord[0] - 5, BEAT * 1.2)
+      if (e === 2 || e === 6) snare(c, at)
+      hat(c, at, e % 2 ? 0.02 : 0.035)
+      next += BEAT / 2
+      step++
+    }
+  }, 120)
+}
+
+function grainTo(c: AudioContext, dest: AudioNode, at: number, f: number, dur: number, vol: number) {
+  const s = src(c)
+  const b = filt(c, 'bandpass', f, 4)
+  const g = c.createGain()
+  g.gain.setValueAtTime(vol, at)
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur)
+  s.connect(b).connect(g).connect(dest)
+  s.start(at, Math.random(), dur + 0.02)
 }
 
 export function stopAll() {

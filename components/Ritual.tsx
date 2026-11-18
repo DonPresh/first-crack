@@ -89,8 +89,10 @@ export function Ritual({ onEnter }: { onEnter: () => void }) {
       // sound: grinder and kettle run while held, drips fall into the mug
       sfx.loop('grind', st === 'grind' && h && s.grind < 1)
       sfx.loop('pour', h && (st === 'bloom' || st === 'pour'))
-      const dripping = st === 'pour' || st === 'drawdown' || (st === 'wait' && s.bloomT > 2)
-      if (dripping && Math.random() < dt * (st === 'drawdown' ? 5 : 3)) sfx.drip(0.85 + s.fill * 0.4 + Math.random() * 0.1)
+      // coffee running from the dripper into the mug: a thin stream that rises in pitch as it fills
+      sfx.setFill(s.fill / 0.86)
+      sfx.loop('trickle', st === 'pour' || st === 'drawdown')
+      if (st === 'wait' && s.bloomT > 2 && Math.random() < dt * 3) sfx.drip(0.9 + Math.random() * 0.2)
       // kettle eases back to rest when not pouring
       if (!(h && (st === 'pour' || st === 'bloom'))) s.kx += (0 - s.kx) * Math.min(1, dt * 3)
       force((n) => (n + 1) % 1e6)

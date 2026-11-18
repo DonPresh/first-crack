@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { journey } from '@/lib/journey'
+import * as sfx from '@/lib/sound'
 
 /* Light HTML/SVG overlays for the journey. The exhibits themselves are 3D (Exhibits3D). */
 
@@ -99,7 +100,10 @@ export function RoastScene({ t }: { t: number }) {
   const [burst, setBurst] = useState(0)
   const was = useRef(false)
   useEffect(() => {
-    if (cracked && !was.current) setBurst((b) => b + 1)
+    if (cracked && !was.current) {
+      setBurst((b) => b + 1)
+      sfx.crackBurst()
+    }
     was.current = cracked
   }, [cracked])
   const [poked, setPoked] = useState(0)

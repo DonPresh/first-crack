@@ -30,7 +30,10 @@ export default function Page() {
     document.body.classList.toggle('locked', phase !== 'entered')
     if (phase === 'spilling') sfx.spill()
     if (phase === 'falling') setTimeout(sfx.plop, 900)
-    if (phase === 'entered') sfx.stopAll()
+    if (phase === 'entered') {
+      sfx.stopAll()
+      sfx.music(true)
+    }
   }, [phase])
 
   const open = useCallback(() => {

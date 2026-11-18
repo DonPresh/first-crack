@@ -1,5 +1,6 @@
 'use client'
 import { hoverCursor } from '@/lib/cursor'
+import { crack as sfxCrack } from '@/lib/sound'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
@@ -135,6 +136,7 @@ function Director({ phase, setPhase, onCover, onOpenRequest }: Props) {
   const pokeAt = useRef(-10)
   const poke = () => {
     pokeAt.current = performance.now() / 1000
+    sfxCrack()
     window.dispatchEvent(new CustomEvent('fc-poke'))
   }
   const narrow = size.width / size.height < 0.8
