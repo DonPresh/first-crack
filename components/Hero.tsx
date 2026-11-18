@@ -178,13 +178,16 @@ export function Hero({ visible }: { visible: boolean }) {
     if (!visible) return
     const onGoto = (e: Event) => {
       const id = (e as CustomEvent).detail as string
-      if (id === 'hero') return window.scrollTo({ top: 0, behavior: 'smooth' })
+      if (id === 'hero') return aim(0), window.scrollTo({ top: 0, behavior: 'smooth' })
       if (id.startsWith('stop-')) {
         const s = segs.current.find((x) => x.id === id)
         if (!s || !frame.current) return
         const top = frame.current.getBoundingClientRect().top + scrollY
+        aim(top + s.t0 + s.hold * 0.92)
         return window.scrollTo({ top: top + s.t0 + s.hold * 0.92, behavior: 'smooth' })
       }
+      aimAt = performance.now() // a section jump: leave it alone for a moment
+      aimY = -1
       document.querySelector(`[data-sec='${id}']`)?.scrollIntoView({ behavior: 'smooth' })
     }
     const step = (dir: 1 | -1) => {
@@ -201,9 +204,23 @@ export function Hero({ visible }: { visible: boolean }) {
       if (e.key === 'ArrowLeft') step(-1)
     }
     ;(window as unknown as { fcStep: typeof step }).fcStep = step
-    // settle on an exhibit: if scrolling stops between two stops, glide to the nearer one
+    // settle on an exhibit: if scrolling stops between two stops, glide to one,
+    // favouring the direction the visitor was heading. Never while a finger is down
+    // or while one of our own smooth scrolls is still travelling.
     let idle = 0
+    let aimY = -1
+    let aimAt = -1e9
+    let lastY = scrollY
+    let dir = 1
+    let touching = false
+    function aim(y: number) {
+      aimY = y
+      aimAt = performance.now()
+    }
     const settle = () => {
+      if (touching) return
+      const travelling = performance.now() - aimAt < (aimY < 0 ? 2500 : 6000) && (aimY < 0 || Math.abs(scrollY - aimY) > 4)
+      if (travelling) return
       const fr = frame.current
       const ss = segs.current
       if (!fr || !ss.length) return
@@ -213,21 +230,38 @@ export function Hero({ visible }: { visible: boolean }) {
       const k = ss.findIndex((x) => time > x.t1 + 2 && time < x.t2 - 2)
       if (k === -1 || !ss[k + 1]) return
       const s = ss[k]
-      const back = (time - s.t1) / (s.t2 - s.t1) < 0.5
+      const k01 = (time - s.t1) / (s.t2 - s.t1)
+      const back = dir > 0 ? k01 < 0.2 : k01 < 0.8
       const dest = back ? s.t1 - 1 : ss[k + 1].t0 + ss[k + 1].hold * 0.6
+      aim(top + dest)
       window.scrollTo({ top: top + dest, behavior: 'smooth' })
     }
     const onScroll = () => {
+      const y = scrollY
+      if (Math.abs(y - lastY) > 1 && performance.now() - aimAt > 2500) dir = y > lastY ? 1 : -1
+      lastY = y
       clearTimeout(idle)
-      idle = window.setTimeout(settle, 220)
+      idle = window.setTimeout(settle, 260)
+    }
+    const tDown = () => (touching = true)
+    const tUp = () => {
+      touching = false
+      clearTimeout(idle)
+      idle = window.setTimeout(settle, 320)
     }
     addEventListener('scroll', onScroll, { passive: true })
+    addEventListener('touchstart', tDown, { passive: true })
+    addEventListener('touchend', tUp, { passive: true })
+    addEventListener('touchcancel', tUp, { passive: true })
     addEventListener('fc-goto', onGoto)
     addEventListener('keydown', onKey)
     return () => {
       removeEventListener('fc-goto', onGoto)
       removeEventListener('keydown', onKey)
       removeEventListener('scroll', onScroll)
+      removeEventListener('touchstart', tDown)
+      removeEventListener('touchend', tUp)
+      removeEventListener('touchcancel', tUp)
       clearTimeout(idle)
     }
   }, [visible])

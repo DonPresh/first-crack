@@ -549,7 +549,9 @@ export function Exhibits3D() {
     const worldH = 2 * Math.tan((38 * Math.PI) / 360) * 6.5
     const worldW = worldH * (size.width / size.height)
     const baseX = wide ? 1.9 : 0
-    const baseY = wide ? 0 : 0.85
+    // phones: exhibits sit in the top band, sized to the screen, clear of the wall text
+    const baseY = wide ? 0 : worldH * 0.17
+    const ms = Math.min(0.62, (worldW * 0.8) / 2.7)
     const f = journey.progress * 5
     const on = journey.active
     groups.current.forEach((g, i) => {
@@ -557,7 +559,7 @@ export function Exhibits3D() {
       g.visible = on && Math.abs(i - f) < 1.25
       g.position.set(baseX + (i - f) * worldW, baseY, 0)
       g.rotation.x = TILT
-      g.scale.setScalar(wide ? 1 : 0.72)
+      g.scale.setScalar(wide ? 1 : ms)
     })
     if (spot.current) {
       spot.current.visible = on
@@ -585,7 +587,7 @@ export function Exhibits3D() {
       <spotLight ref={spot} target={target} intensity={60} angle={0.42} penumbra={0.75} decay={1.6} distance={14} castShadow shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} />
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <group key={i} ref={(el) => (groups.current[i] = el)} visible={false}>
-          <Plinth m={m} h={(size.width >= 900 && size.width / size.height >= 1.05) ? 3.2 : 0.7} />
+          <Plinth m={m} h={(size.width >= 900 && size.width / size.height >= 1.05) ? 3.2 : 0.35} />
           {i === 0 && (
             <Spin>
               <Cherry t={L[0] ?? 0} m={m} seedGeo={seedGeo} />

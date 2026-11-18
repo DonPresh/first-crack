@@ -16,7 +16,7 @@ export function CherryScene({ t }: { t: number }) {
   return (
     <svg viewBox="0 0 500 500" className="scene">
       <g className="mono-svg" opacity={ss(t, 0.7, 1)}>
-        <text x="250" y="70" textAnchor="middle">TWO SEEDS · FLAT SIDES TOUCHING</text>
+        <text x="250" y="70" textAnchor="middle" className="hide-phone">TWO SEEDS · FLAT SIDES TOUCHING</text>
       </g>
       <text x="250" y="492" textAnchor="middle" className="mono-svg" opacity={0.6}>
         TAP TO OPEN · DRAG TO TURN IT
@@ -124,7 +124,7 @@ export function RoastScene({ t }: { t: number }) {
         <text x="30" y={325 - ((196 - 20) / 190) * 320} className="mono-svg">196°</text>
         <text x="-4" y="350" className="mono-svg big-svg">{temp}°C</text>
       </g>
-      <text x="250" y="470" textAnchor="middle" className="mono-svg">
+      <text x="250" y="458" textAnchor="middle" className="mono-svg">
         {phase}
       </text>
       <text x="250" y="492" textAnchor="middle" className="mono-svg" opacity={0.6}>
@@ -159,7 +159,8 @@ export function CupScene({ t }: { t: number }) {
   return (
     <svg viewBox="0 0 500 500" className="scene">
       <g className="mono-svg" style={{ opacity: ss(t, 0.8, 1) }}>
-        <text x="250" y="470" textAnchor="middle">≈70 BEANS IN ONE CUP · ≈1 LB OF COFFEE PER TREE A YEAR</text>
+        <text x="250" y="436" textAnchor="middle">≈70 BEANS IN ONE CUP</text>
+        <text x="250" y="462" textAnchor="middle">≈1 LB OF COFFEE PER TREE A YEAR</text>
       </g>
       <g className="mono-svg" style={{ opacity: 0.6 }}>
         <text x="250" y="492" textAnchor="middle">TAP THE MUG TO DROP A BEAN · DRAG TO TURN IT</text>

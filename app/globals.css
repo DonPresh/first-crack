@@ -829,3 +829,28 @@ button { font: inherit; cursor: var(--cur-pointer); border: 0; background: none;
   a, button, [role='button'], label, summary, select { cursor: var(--cur-pointer); }
 }
 input[type='text'], textarea { cursor: text; }
+
+/* ---------- phones ---------- */
+html, body { overflow-x: clip; }
+.gate { overflow: hidden; }
+.gallery { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 899px), (max-aspect-ratio: 21/20) {
+  .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 40px 14px !important; }
+  .exhibit, .exhibit__tile { min-width: 0; }
+  .mono-svg { font-size: 21px; letter-spacing: 0.04em; }
+}
+@media (max-width: 899px), (max-aspect-ratio: 21/20) {
+  .stop { padding-bottom: 72px; }
+  .stop__scene { top: 40%; width: min(72vw, 38vh); }
+}
+@media (max-width: 899px), (max-aspect-ratio: 21/20) { .hide-phone { display: none; } }
+@media (max-width: 899px), (max-aspect-ratio: 21/20) {
+  .ritual__copy { gap: 10px; }
+  .ritual__foot { margin-top: 18px; }
+  .ritual__art { max-height: 42svh; }
+}
+@media (max-width: 899px), (max-aspect-ratio: 21/20) {
+  .exhibit__cap { flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 10px 0; }
+  .exhibit__name { font-size: 17px; line-height: 1.15; overflow-wrap: normal; hyphens: auto; }
+  .exhibit__notes { padding: 0 10px; }
+}

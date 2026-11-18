@@ -252,7 +252,8 @@ function Director({ phase, setPhase, onCover, onOpenRequest }: Props) {
         const roastT = journey.local[4] ?? 0
         if (f < 3.35) ts = 0.0001 // the bean leaves; the story goes back to the seed
         else if (f < 4.6) {
-          ts = baseS * 0.62
+          ts = wide ? baseS * 0.62 : 0.36
+          if (!wide) ty = worldH * 0.17 - 0.12 // sits on the phone plinth, clear of the wall text
           tx = baseX + (4 - f) * worldH * (size.width / size.height)
           // the roast: spins faster as heat climbs, jolts at first crack
           spin = 0.25 + roastT * 2.4

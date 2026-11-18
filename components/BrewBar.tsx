@@ -65,6 +65,8 @@ export function BrewBar({
   const [drink, setDrink] = useState<Drink | null>(null)
   const [hover, setHover] = useState<number | null>(null)
   const [holding, setHolding] = useState(false)
+  const [touch, setTouch] = useState(false)
+  useEffect(() => setTouch(matchMedia('(pointer: coarse)').matches), [])
   const [docked, setDocked] = useState<string | null>(null)
   const [dockAt, setDockAt] = useState({ x: 0, y: 0 })
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null)
@@ -471,7 +473,7 @@ export function BrewBar({
       <div className="brew__controls">
         {stage === 'menu' && (
           <div className="mono brew__hint">
-            {hover !== null ? `${DRINKS[hover].name} · ${DRINKS[hover].note}` : 'HOVER A CUP · CLICK TO BREW'}
+            {hover !== null ? `${DRINKS[hover].name} · ${DRINKS[hover].note}` : (touch ? 'TAP A CUP TO BREW' : 'HOVER A CUP · CLICK TO BREW')}
           </div>
         )}
 
