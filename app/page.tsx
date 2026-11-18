@@ -7,6 +7,8 @@ import { Gate } from '@/components/Gate'
 import { Hero } from '@/components/Hero'
 import { Ritual } from '@/components/Ritual'
 import type { Phase } from '@/lib/phase'
+import * as sfx from '@/lib/sound'
+import { SoundToggle } from '@/components/SoundToggle'
 
 const Experience = dynamic(() => import('@/components/Experience'), { ssr: false })
 
@@ -26,10 +28,15 @@ export default function Page() {
 
   useEffect(() => {
     document.body.classList.toggle('locked', phase !== 'entered')
+    if (phase === 'spilling') sfx.spill()
+    if (phase === 'falling') setTimeout(sfx.plop, 900)
+    if (phase === 'entered') sfx.stopAll()
   }, [phase])
 
   const open = useCallback(() => {
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+    sfx.unlock()
+    sfx.tear()
     setPhase(reduce ? 'ritual' : 'opening')
   }, [])
 
@@ -52,6 +59,7 @@ export default function Page() {
       <Gate visible={phase === 'gate'} onOpen={open} />
       {phase === 'ritual' && <Ritual onEnter={() => cover('entered')} />}
       <Hero visible={phase === 'entered'} />
+      {phase !== 'loading' && phase !== 'entered' && <SoundToggle className="sound-toggle--float" />}
       <div ref={wipe} className="wipe" aria-hidden />
       {!loaderGone && (
         <Loader

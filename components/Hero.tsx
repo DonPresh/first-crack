@@ -1,4 +1,5 @@
 'use client'
+import { SoundToggle } from './SoundToggle'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { STOPS, journey } from '@/lib/journey'
@@ -257,6 +258,7 @@ export function Hero({ visible }: { visible: boolean }) {
               {c.label}
             </button>
           ))}
+          <SoundToggle />
         </div>
       </nav>
 

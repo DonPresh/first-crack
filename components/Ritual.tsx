@@ -1,4 +1,5 @@
 'use client'
+import * as sfx from '@/lib/sound'
 import { useEffect, useRef, useState } from 'react'
 
 /* Part 1 · The morning ritual: a hand-poured V60 into the museum mug, in the brew bar's lacquer and chrome. */
@@ -42,7 +43,10 @@ export function Ritual({ onEnter }: { onEnter: () => void }) {
       const h = holdRef.current
       if (st === 'land') {
         s.land = Math.min(1, s.land + dt / 1.3)
-        if (s.land >= 1) setStep('grind')
+        if (s.land >= 1) {
+          sfx.plop()
+          setStep('grind')
+        }
       }
       if (st === 'grind' && h) {
         s.grind = Math.min(1, s.grind + dt / 2)
@@ -77,20 +81,32 @@ export function Ritual({ onEnter }: { onEnter: () => void }) {
       if (st === 'drawdown') {
         s.clock = Math.min(184, s.clock + dt * 14)
         s.fill = Math.min(0.86, s.fill + dt * 0.12)
-        if (s.fill >= 0.86) setStep('done')
+        if (s.fill >= 0.86) {
+          sfx.ding()
+          setStep('done')
+        }
       }
+      // sound: grinder and kettle run while held, drips fall into the mug
+      sfx.loop('grind', st === 'grind' && h && s.grind < 1)
+      sfx.loop('pour', h && (st === 'bloom' || st === 'pour'))
+      const dripping = st === 'pour' || st === 'drawdown' || (st === 'wait' && s.bloomT > 2)
+      if (dripping && Math.random() < dt * (st === 'drawdown' ? 5 : 3)) sfx.drip(0.85 + s.fill * 0.4 + Math.random() * 0.1)
       // kettle eases back to rest when not pouring
       if (!(h && (st === 'pour' || st === 'bloom'))) s.kx += (0 - s.kx) * Math.min(1, dt * 3)
       force((n) => (n + 1) % 1e6)
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
+    return () => {
+      cancelAnimationFrame(raf)
+      sfx.stopAll()
+    }
   }, [])
 
   const canHold = step === 'grind' || step === 'bloom' || step === 'pour'
   const down = (e: React.PointerEvent) => {
     if (!canHold) return
+    sfx.unlock()
     ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
     setHolding(true)
   }

@@ -3,10 +3,21 @@ import { useEffect, useRef, useState } from 'react'
 
 const MIN_MS = 3200
 
+const FACTS = [
+  'First crack is the pop a bean makes near 196°C, when steam splits it open. The roast is now drinkable.',
+  'Coffee beans are seeds. Each red cherry usually holds two, flat sides pressed together.',
+  'About 70 beans go into one cup. A single tree gives roughly a pound of roasted coffee a year.',
+  'Legend says a goat herder in Ethiopia noticed his goats dancing after eating coffee cherries.',
+  'Light roasts carry slightly more caffeine than dark ones. Roasting burns a little off.',
+  'Fresh coffee blooms when hot water hits it: that puff is CO₂ escaping the grounds.',
+]
+
 /** Just the counter. Counts to 100 (waiting for fonts), then slides away. */
 export function Loader({ onDone }: { onDone: () => void }) {
   const [pct, setPct] = useState(0)
   const [exiting, setExiting] = useState(false)
+  const [fact, setFact] = useState(0)
+  useEffect(() => setFact(Math.floor(Math.random() * FACTS.length)), [])
   const doneRef = useRef(onDone)
   doneRef.current = onDone
 
@@ -42,6 +53,10 @@ export function Loader({ onDone }: { onDone: () => void }) {
         {String(pct).padStart(3, '0')}
         <span>%</span>
       </div>
+      <p className="loader__fact mono">
+        <span>FUN FACT</span>
+        {FACTS[fact]}
+      </p>
     </div>
   )
 }

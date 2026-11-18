@@ -1,4 +1,5 @@
 'use client'
+import * as sfx from '@/lib/sound'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { goto } from '@/lib/goto'
@@ -144,6 +145,24 @@ export function BrewBar({
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
   }, [holding, dose])
+
+  // sound for whatever the machine is doing while held
+  useEffect(() => {
+    const on = (k: Parameters<typeof sfx.loop>[0], v: boolean) => sfx.loop(k, v)
+    on('rattle', holding && stage === 'load' && !!docked)
+    on('grind', holding && stage === 'grind')
+    on('pour', holding && stage === 'water')
+    on('shot', holding && stage === 'pull')
+    on('steam', holding && stage === 'steam')
+    if (holding) sfx.unlock()
+    return () => sfx.stopAll()
+  }, [holding, stage, docked])
+  useEffect(() => {
+    if (stage === 'tamp' && locked) sfx.thud()
+  }, [stage, locked])
+  useEffect(() => {
+    if (stage === 'mug') sfx.ding()
+  }, [stage])
 
   const release = () => {
     if (!holding) return
