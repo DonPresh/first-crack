@@ -3,7 +3,9 @@ const held = new Map<string, string>()
 const RANK = ['grabbing', 'pointer', 'grab']
 function apply() {
   const vals = [...held.values()]
-  document.body.style.cursor = RANK.find((c) => vals.includes(c)) ?? ''
+  const c = RANK.find((k) => vals.includes(k))
+  // map to the bean cursors defined in globals.css
+  document.body.style.cursor = c ? `var(--cur-${c})` : ''
 }
 export function hoverCursor(key: string, c: string | null) {
   if (typeof document === 'undefined') return

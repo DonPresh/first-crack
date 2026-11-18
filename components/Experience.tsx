@@ -67,7 +67,7 @@ function Bag({
   }, [front])
 
   useEffect(() => {
-    document.body.style.cursor = hover && phase === 'gate' ? 'pointer' : ''
+    document.body.style.cursor = hover && phase === 'gate' ? 'var(--cur-pointer)' : ''
   }, [hover, phase])
 
   useFrame((state, dt) => {
